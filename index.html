@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Registro de Problemas - Sistema Educacional</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f6f7fb; }
+    h1 { text-align: center; }
+    form, table { width: 100%; margin-top: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    label { display:block; margin-top:10px; font-weight:600; }
+    select, input[type="date"], textarea { width:100%; padding:8px; margin-top:6px; border-radius:6px; border:1px solid #ccc; box-sizing:border-box; }
+    .controls { margin-top:12px; }
+    button { padding:8px 14px; margin-right:8px; border:none; border-radius:6px; cursor:pointer; }
+    .guardar { background:#28a745; color:#fff; }
+    .borrar { background:#ffc107; color:#000; }
+    .cancelar { background:#dc3545; color:#fff; }
+    .consultar { background:#007bff; color:#fff; }
+    table { border-collapse:collapse; margin-top:20px; }
+    th, td { border:1px solid #dfe3e8; padding:8px; text-align:left; font-size:14px; }
+    th { background:#0d6efd; color:#fff; }
+    .small { font-size:13px; color:#666; }
+  </style>
+</head>
+<body>
+  <h1>Registro de Problemas / Fallas</h1>
+
+  <form id="formReporte">
+    <label for="grado">Grado</label>
+    <select id="grado" required>
+      <option value="">Seleccione</option>
+      <option>1°</option><option>2°</option><option>3°</option><option>4°</option><option>5°</option><option>6°</option>
+    </select>
+
+    <label for="grupo">Grupo</label>
+    <select id="grupo" required>
+      <option value="">Seleccione</option>
+      <option>A</option><option>B</option><option>C</option>
+    </select>
+
+    <label for="clase">Clase</label>
+    <select id="clase" required>
+      <option value="">Seleccione</option>
+      <option>Matemáticas</option><option>Español</option><option>Ciencias</option><option>Historia</option><option>Geografía</option><option>Inglés</option>
+    </select>
+
+    <label for="docente">Docente</label>
+    <select id="docente" required>
+      <option value="">Seleccione</option>
+      <option>Profesor 1</option><option>Profesor 2</option><option>Profesor 3</option>
+    </select>
+
+    <label for="fecha">Fecha</label>
+    <input type="date" id="fecha" readonly />
+
+    <label for="descripcion">Descripción del problema o falla</label>
+    <textarea id="descripcion" rows="4" required></textarea>
+
+    <div class="controls">
+      <button type="button" class="guardar" id="btnGuardar">Guardar</button>
+      <button type="reset" class="borrar" id="btnBorrar">Borrar</button>
+      <button type="button" class="cancelar" id="btnCancelar">Cancelar</button>
+      <button type="button" class="consultar" id="btnConsultar">Consultar estatus</button>
+    </div>
+  </form>
+
+  <h2>Reportes guardados</h2>
+  <p class="small">La tabla se carga desde la hoja de cálculo.</p>
+  <table id="tablaReportes">
+    <thead>
+      <tr>
+        <th>Ticket</th><th>Grado</th><th>Grupo</th><th>Clase</th><th>Docente</th><th>Fecha</th><th>Descripción</th><th>Estado</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+  // Pega aquí la URL de tu Web App (Apps Script) --- reemplaza la cadena:
+  const SCRIPT_URL = https://script.google.com/macros/s/AKfycbxIlu4Wbth_lQowgVtqm919C-2gs-TPP75P8KvqwsuRKGnB-Ei_nrh-In01rO6eytjBtQ/exec;
+
+  // Inicializar
+  document.getElementById("fecha").value = new Date().toISOString().slice(0,10);
+  document.getElementById("btnGuardar").addEventListener("click", guardarReporte);
+  document.getElementById("btnCancelar").addEventListener("click", cancelar);
+  document.getElementById("btnConsultar").addEventListener("click", consultarEstatus);
+
+  // Cargar reportes al iniciar
+  window.addEventListener("load", loadReports);
+
+  async function loadReports() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=all`);
+      const json = await res.json();
+      if (!json.success) {
+        console.warn("No se pudo cargar reportes:", json.error);
+        return;
+      }
+      populateTable(json.data || []);
+    } catch (err) {
+      console.error(err);
+      alert("Error al cargar reportes. Revisa la consola.");
+    }
+  }
+
+  function populateTable(rows) {
+    const tbody = document.querySelector("#tablaReportes tbody");
+    tbody.innerHTML = "";
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      // usa las claves exactas de tus encabezados:
+      tr.innerHTML = `
+        <td>${r["Ticket"] ?? ""}</td>
+        <td>${r["Grado"] ?? ""}</td>
+        <td>${r["Grupo"] ?? ""}</td>
+        <td>${r["Clase"] ?? ""}</td>
+        <td>${r["Docente"] ?? ""}</td>
+        <td>${r["Fecha"] ?? ""}</td>
+        <td>${r["Descripción"] ?? ""}</td>
+        <td>${r["Estado"] ?? ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function guardarReporte() {
+    const grado = document.getElementById("grado").value;
+    const grupo = document.getElementById("grupo").value;
+    const clase = document.getElementById("clase").value;
+    const docente = document.getElementById("docente").value;
+    const fecha = document.getElementById("fecha").value;
+    const descripcion = document.getElementById("descripcion").value.trim();
+
+    if (!grado || !grupo || !clase || !docente || !descripcion) {
+      alert("Por favor completa todos los campos.");
+      return;
+    }
+
+    const payload = { grado, grupo, clase, docente, fecha, descripcion };
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" }
+      });
+      const json = await res.json();
+      if (json.success) {
+        alert("Reporte subido correctamente. Número de ticket: " + json.ticket);
+        // agregar localmente a la tabla (estado por defecto Pendiente)
+        const row = {
+          "Ticket": json.ticket,
+          "Grado": grado,
+          "Grupo": grupo,
+          "Clase": clase,
+          "Docente": docente,
+          "Fecha": fecha,
+          "Descripción": descripcion,
+          "Estado": "Pendiente"
+        };
+        // agregar fila visual sin recargar todo
+        const tbody = document.querySelector("#tablaReportes tbody");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row["Ticket"]}</td><td>${row["Grado"]}</td><td>${row["Grupo"]}</td>
+          <td>${row["Clase"]}</td><td>${row["Docente"]}</td><td>${row["Fecha"]}</td>
+          <td>${row["Descripción"]}</td><td>${row["Estado"]}</td>
+        `;
+        tbody.appendChild(tr);
+        document.getElementById("formReporte").reset();
+        document.getElementById("fecha").value = new Date().toISOString().slice(0,10);
+      } else {
+        alert("Error al guardar: " + (json.error || "Error desconocido"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error de red al guardar el reporte.");
+    }
+  }
+
+  function cancelar() {
+    if (confirm("¿Está seguro de cancelar? Se perderán los datos ingresados.")) {
+      document.getElementById("formReporte").reset();
+      document.getElementById("fecha").value = new Date().toISOString().slice(0,10);
+    }
+  }
+
+  // Consultar estatus por número de ticket
+  async function consultarEstatus() {
+    const ticket = prompt("Ingresa el número de ticket a consultar:");
+    if (!ticket) return;
+    try {
+      const res = await fetch(`${SCRIPT_URL}?ticket=${encodeURIComponent(ticket)}`);
+      const json = await res.json();
+      if (json.success) {
+        const d = json.data;
+        alert(`Ticket ${d["Ticket"]}\nEstado: ${d["Estado"]}\nDescripción: ${d["Descripción"]}`);
+      } else {
+        alert("No encontrado: " + (json.error || ""));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al consultar estatus.");
+    }
+  }
+</script>
+</body>
+</html>
